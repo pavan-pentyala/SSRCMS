@@ -1,0 +1,144 @@
+<?php
+// ─── SSRCMS Installer Template ────────────────────────────────────────────────
+// RENAME THIS FILE TO install.php AND FILL IN YOUR CREDENTIALS
+
+$host     = 'localhost';
+$user     = 'your_username';
+$password = 'your_password';
+$dbname   = 'ssrcms_proj_db';
+
+
+$steps  = [];
+$errors = [];
+
+// ... (Rest of the installation logic remains the same)
+try {
+    // 1. Connect without selecting a DB
+    $pdo = new PDO("mysql:host=$host;charset=utf8mb4", $user, $password, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+    ]);
+    $steps[] = '✅ Connected to MySQL successfully.';
+
+    // 2. Create database
+    $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+    $pdo->exec("USE `$dbname`");
+    $steps[] = "✅ Database <code>$dbname</code> created (or already exists).";
+
+    // 3. Create users table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `users` (
+            `id`          INT AUTO_INCREMENT PRIMARY KEY,
+            `name`        VARCHAR(100)  NOT NULL,
+            `email`       VARCHAR(100)  UNIQUE NOT NULL,
+            `password`    VARCHAR(255)  NOT NULL,
+            `department`  VARCHAR(100)  DEFAULT NULL,
+            `phone`       VARCHAR(15)   DEFAULT NULL,
+            `role`        ENUM('user','admin') DEFAULT 'user',
+            `created_at`  TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+    $steps[] = '✅ Table <code>users</code> created (or already exists).';
+
+    // 4. Create complaints table
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS `complaints` (
+            `id`           INT AUTO_INCREMENT PRIMARY KEY,
+            `user_id`      INT NOT NULL,
+            `title`        VARCHAR(200)  NOT NULL,
+            `category`     ENUM('Electrical','Network','Maintenance','Plumbing','Other') DEFAULT 'Other',
+            `priority`     ENUM('Low','Medium','High','Critical') DEFAULT 'Low',
+            `description`  TEXT,
+            `status`       ENUM('Pending','In-Progress','Resolved','Closed') DEFAULT 'Pending',
+            `assigned_to`  VARCHAR(100)  DEFAULT NULL,
+            `admin_notes`  TEXT          DEFAULT NULL,
+            `created_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            `updated_at`   TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            FOREIGN KEY (`user_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+    $steps[] = '✅ Table <code>complaints</code> created (or already exists).';
+
+    // 5. Seed admin user
+    $adminPass = password_hash('Admin@123', PASSWORD_BCRYPT);
+    $stmt = $pdo->prepare("
+        INSERT IGNORE INTO `users` (`name`, `email`, `password`, `department`, `phone`, `role`)
+        VALUES (?, ?, ?, ?, ?, 'admin')
+    ");
+    $stmt->execute(['System Admin', 'admin@servicedesk.com', $adminPass, 'IT Department', '9999999999']);
+    $steps[] = '✅ Admin user seeded — <strong>admin@servicedesk.com / Admin@123</strong>';
+
+    // 6. Seed demo user
+    $userPass = password_hash('User@123', PASSWORD_BCRYPT);
+    $stmt = $pdo->prepare("
+        INSERT IGNORE INTO `users` (`name`, `email`, `password`, `department`, `phone`, `role`)
+        VALUES (?, ?, ?, ?, ?, 'user')
+    ");
+    $stmt->execute(['Pavan Kumar', 'user@demo.com', $userPass, 'Engineering', '8888888888']);
+    $steps[] = '✅ Demo user seeded — <strong>user@demo.com / User@123</strong>';
+
+    // 7. Seed demo complaints (only if table is empty)
+    $count = $pdo->query("SELECT COUNT(*) FROM complaints")->fetchColumn();
+    if ($count == 0) {
+        $demoUserId = $pdo->query("SELECT id FROM users WHERE email='user@demo.com'")->fetchColumn();
+        $complaints = [
+            [$demoUserId, 'Network connectivity issue in Lab 3',  'Network',     'High',     'Students cannot connect to the internet in Lab 3. Issue started this morning.', 'In-Progress', 'Ravi Kumar'],
+            [$demoUserId, 'Ceiling fan not working in Room 204',  'Electrical',  'Medium',   'The ceiling fan in Room 204 makes noise and then stops. Needs inspection.',      'Pending',     null],
+            [$demoUserId, 'Water leakage near main entrance',     'Plumbing',    'Critical', 'Water is leaking near the main entrance, creating a safety hazard.',            'Resolved',    'Suresh Babu'],
+        ];
+        $stmt = $pdo->prepare("
+            INSERT INTO complaints (user_id, title, category, priority, description, status, assigned_to)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        foreach ($complaints as $c) {
+            $stmt->execute($c);
+        }
+        $steps[] = '✅ 3 demo complaints seeded.';
+    } else {
+        $steps[] = 'ℹ️ Complaints table already has data — skipping demo seed.';
+    }
+
+    $steps[] = '<strong>🎉 Installation complete! <a href="index.php">Go to Login →</a></strong>';
+
+} catch (PDOException $e) {
+    $errors[] = '❌ Error: ' . htmlspecialchars($e->getMessage());
+}
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SSRCMS Installer</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body { background: #0f0f1a; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; }
+        .installer-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; backdrop-filter: blur(10px); }
+        code { color: #6c63ff; }
+        .step { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .step:last-child { border-bottom: none; }
+        h1 span { color: #6c63ff; }
+    </style>
+</head>
+<body class="d-flex align-items-center justify-content-center min-vh-100">
+    <div class="installer-card p-5" style="max-width:640px; width:100%;">
+        <h1 class="fw-bold mb-1">SSRCMS <span>Installer</span></h1>
+        <p class="text-muted mb-4">Smart Service Request & Complaint Management System</p>
+
+        <?php if (!empty($errors)): ?>
+            <div class="alert alert-danger">
+                <?php foreach ($errors as $e) echo "<p class='mb-1'>$e</p>"; ?>
+            </div>
+        <?php endif; ?>
+
+        <?php foreach ($steps as $s): ?>
+            <div class="step"><?= $s ?></div>
+        <?php endforeach; ?>
+
+        <?php if (empty($errors) && !empty($steps)): ?>
+            <div class="mt-4 p-3 rounded" style="background: rgba(108,99,255,0.1); border: 1px solid rgba(108,99,255,0.3);">
+                <p class="mb-1"><strong>⚠️ Security Note:</strong> Delete or rename <code>install.php</code> after setup.</p>
+            </div>
+        <?php endif; ?>
+    </div>
+</body>
+</html>

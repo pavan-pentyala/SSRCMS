@@ -1,0 +1,37 @@
+{
+  "name": "ServiceDesk Pro — SSRCMS",
+  "short_name": "ServiceDesk",
+  "description": "Smart Service Request & Complaint Management System",
+  "start_url": "/SSRCMS/index.php",
+  "scope": "/SSRCMS/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0f0f1a",
+  "theme_color": "#6c63ff",
+  "lang": "en",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "assets/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "assets/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Submit Complaint",
+      "short_name": "Submit",
+      "description": "Quickly submit a new complaint",
+      "url": "/SSRCMS/dashboard.php#submit",
+      "icons": [{ "src": "assets/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
